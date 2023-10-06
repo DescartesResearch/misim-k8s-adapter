@@ -2,7 +2,7 @@ package broadcast
 
 import (
 	"context"
-	"fmt"
+	"k8s.io/klog/v2"
 )
 
 // https://betterprogramming.pub/how-to-broadcast-messages-in-go-using-channels-b68f42bdf32e
@@ -16,14 +16,14 @@ type BroadcastServer[T any] struct {
 }
 
 func (s *BroadcastServer[T]) Subscribe() <-chan T {
-	fmt.Printf("Subscribe to %s\n", s.name)
+	klog.V(7).Info("Subscribe to ", s.name)
 	newListener := make(chan T, 500)
 	s.addListener <- newListener
 	return newListener
 }
 
 func (s *BroadcastServer[T]) CancelSubscription(channel <-chan T) {
-	fmt.Printf("Remove from %s\n", s.name)
+	klog.V(7).Info("Remove from ", s.name)
 	s.removeListener <- channel
 }
 
