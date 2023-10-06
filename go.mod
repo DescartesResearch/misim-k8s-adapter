@@ -1,4 +1,4 @@
-module kube-rise
+module go-kube
 
 go 1.20
 
@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	k8s.io/api v0.26.5
 	k8s.io/apimachinery v0.27.2
+	k8s.io/klog/v2 v2.90.1
 	sigs.k8s.io/cluster-api v1.4.3
 )
 
@@ -59,7 +60,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/client-go v0.26.1 // indirect
 	k8s.io/component-base v0.26.1 // indirect
-	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	sigs.k8s.io/controller-runtime v0.14.5 // indirect
