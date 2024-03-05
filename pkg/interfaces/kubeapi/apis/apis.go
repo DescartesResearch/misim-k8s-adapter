@@ -4,7 +4,9 @@ import (
 	"go-kube/pkg/interfaces/kubeapi/apis/apps"
 	"go-kube/pkg/interfaces/kubeapi/apis/autoscaling"
 	"go-kube/pkg/interfaces/kubeapi/apis/cluster"
+	"go-kube/pkg/interfaces/kubeapi/apis/events"
 	"go-kube/pkg/storage"
+
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,6 +15,7 @@ type ApisResource interface {
 	Apps() apps.AppsResource
 	Autoscaling() autoscaling.AutoscalingResource
 	Cluster() cluster.ClusterResource
+	Events() events.EventsResource
 }
 
 type ApisResourceImpl struct {
@@ -62,6 +65,10 @@ func (api ApisResourceImpl) Autoscaling() autoscaling.AutoscalingResource {
 
 func (api ApisResourceImpl) Cluster() cluster.ClusterResource {
 	return cluster.NewClusterResource(api.storage)
+}
+
+func (api ApisResourceImpl) Events() events.EventsResource {
+	return events.NewEventsResource(api.storage)
 }
 
 func NewApisResource(storage *storage.StorageContainer) ApisResource {

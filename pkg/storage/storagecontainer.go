@@ -11,4 +11,5 @@ type StorageContainer struct {
 	PodIds          IdStorage
 	MachineIds      IdStorage
 	AdapterState    AdapterStateStorage
+	Events          EventStorage
 }

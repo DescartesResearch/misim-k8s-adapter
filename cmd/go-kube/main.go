@@ -5,6 +5,7 @@ import (
 	"go-kube/pkg/interfaces"
 	"go-kube/pkg/storage"
 	"go-kube/pkg/storage/inmemorystorage"
+
 	"k8s.io/klog/v2"
 )
 
@@ -19,6 +20,7 @@ func initStorages() storage.StorageContainer {
 	var podIdStorage = inmemorystorage.NewIdInMemoryStorage()
 	var machineIdStorage = inmemorystorage.NewIdInMemoryStorage()
 	var adapterStateStorage = inmemorystorage.NewAdapterStateInMemoryStorage()
+	var eventStorage = inmemorystorage.NewEventInMemoryStorage()
 
 	return storage.StorageContainer{
 		Pods:            &podStorage,
@@ -31,6 +33,7 @@ func initStorages() storage.StorageContainer {
 		PodIds:          &podIdStorage,
 		MachineIds:      &machineIdStorage,
 		AdapterState:    &adapterStateStorage,
+		Events:          &eventStorage,
 	}
 }
 

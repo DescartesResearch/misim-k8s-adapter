@@ -2,6 +2,7 @@ package misim
 
 import (
 	v1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cluster "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -50,3 +51,6 @@ type PodsUpdateResponse struct {
 	NewNodes     []v1.Node
 	DeletedNodes []v1.Node
 }
+
+// Response of the adapter to a Events request from the simulation
+type EventsResponse struct{ eventsv1.EventList }

@@ -2,13 +2,14 @@ package infrastructure
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"io"
-	"k8s.io/klog/v2"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"k8s.io/klog/v2"
 )
 
-func HandleRequest[T any](supplier func() T) Endpoint {
+func HandleJSONRequest[T any](supplier func() T) Endpoint {
 	return func(w http.ResponseWriter, r *http.Request) {
 		klog.V(7).Infof("Req: %s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/json")
@@ -17,7 +18,7 @@ func HandleRequest[T any](supplier func() T) Endpoint {
 	}
 }
 
-func HandleRequestWithBody[B any, T any](supplier func(B) T) Endpoint {
+func HandleRequestWithJSONBody[B any, T any](supplier func(B) T) Endpoint {
 	return func(w http.ResponseWriter, r *http.Request) {
 		klog.V(7).Infof("Req: %s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/json")
@@ -34,7 +35,7 @@ func HandleRequestWithBody[B any, T any](supplier func(B) T) Endpoint {
 	}
 }
 
-func HandleRequestWithParamsAndBody[B any, T any](supplier func(map[string]string, B) T) Endpoint {
+func HandleRequestWithParamsAndJSONBody[B any, T any](supplier func(map[string]string, B) T) Endpoint {
 	return func(w http.ResponseWriter, r *http.Request) {
 		klog.V(7).Infof("Req: %s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/json")

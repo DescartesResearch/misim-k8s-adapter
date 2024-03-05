@@ -2,9 +2,10 @@ package infrastructure
 
 import (
 	"encoding/json"
-	"k8s.io/klog/v2"
 	"net/http"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 // If query parameter "watch" is added writes empty
