@@ -130,6 +130,7 @@ func (app *AdapterApplication) registerRoutes() {
 		namespace := pathParams["namespace"]
 		klog.V(1).Infof("Received event: %v", u)
 		app.kube2.Apis().Events().V1().Namespaces().Namespace(namespace).Events().Post(*u)
+		w.Write([]byte("{}"))
 	}).Methods("POST", "PUT", "PATCH")
 
 	app.router.HandleFunc("/apis/policy/v1/poddisruptionbudgets", infrastructure.UnsupportedResource()).Methods("GET")
