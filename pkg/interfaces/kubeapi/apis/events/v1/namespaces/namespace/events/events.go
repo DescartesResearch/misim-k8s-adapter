@@ -22,7 +22,7 @@ type EventsResourceImpl struct {
 func (impl EventsResourceImpl) Post(event eventsv1.
 	Event) eventsv1.
 	Event {
-	impl.storage.Events.StoreEvent(event)
+	impl.storage.Events.StoreEventsApiEvent(event)
 	return event
 }
 

@@ -50,12 +50,26 @@ func (app *AdapterApplication) registerRoutes() {
 	// Simulator API
 	app.router.HandleFunc("/updateNodes", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().Post)).Methods("POST")
 	app.router.HandleFunc("/updatePods", infrastructure.HandleRequestWithJSONBody(app.sim2.PodUpdates().Post)).Methods("POST")
-	app.router.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+	app.router.HandleFunc("/getEventsApiEvents", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		eventList := app.sim2.Events().Get()
+		eventList := app.sim2.Events().GetEventsApiEvents()
 		eventsv1GV := eventsv1.SchemeGroupVersion
 		eventsV1Codec := scheme.Codecs.CodecForVersions(scheme.Codecs.LegacyCodec(eventsv1GV), scheme.Codecs.UniversalDecoder(eventsv1GV), eventsv1GV, eventsv1GV)
 		encodedEventList, err := runtime.Encode(eventsV1Codec, &eventList)
+		if err != nil {
+			klog.V(1).ErrorS(err, "There was an error encoding the events. err = ", err)
+			w.WriteHeader(500)
+			return
+		}
+		w.Write(encodedEventList)
+	}).Methods("GET")
+
+	app.router.HandleFunc("/getCoreApiEvents", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		eventList := app.sim2.Events().GetCoreApiEvents()
+		corev1GV := v1.SchemeGroupVersion
+		coreV1Codec := scheme.Codecs.CodecForVersions(scheme.Codecs.LegacyCodec(corev1GV), scheme.Codecs.UniversalDecoder(corev1GV), corev1GV, corev1GV)
+		encodedEventList, err := runtime.Encode(coreV1Codec, &eventList)
 		if err != nil {
 			klog.V(1).ErrorS(err, "There was an error encoding the events. err = ", err)
 			w.WriteHeader(500)
@@ -113,6 +127,12 @@ func (app *AdapterApplication) registerRoutes() {
 	app.router.HandleFunc("/apis/apps/v1/statefulsets", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/autoscaling/v1", infrastructure.HandleJSONRequest(app.kube2.Apis().Autoscaling().V1().Get)).Methods("GET")
 	app.router.HandleFunc("/apis/batch/v1/jobs", infrastructure.UnsupportedResource()).Methods("GET")
+
+	app.router.HandleFunc("/api/v1/namespaces/{namespace}/events", infrastructure.HandleRequestWithParamsAndJSONBody(
+		func(params map[string]string, body v1.Event) v1.Event {
+			return app.kube2.Api().V1().Namespaces().Namespace(params["namespace"]).Events().Post(body)
+		})).Methods("POST")
+
 	app.router.HandleFunc("/apis/events.k8s.io/v1", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/events.k8s.io/v1/namespaces/{namespace}/events", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/events.k8s.io/v1/namespaces/{namespace}/events", func(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +148,7 @@ func (app *AdapterApplication) registerRoutes() {
 		}
 		pathParams := mux.Vars(r)
 		namespace := pathParams["namespace"]
-		klog.V(1).Infof("Received event: %v", u)
+		klog.V(7).Infof("Received events API event: %v", u)
 		app.kube2.Apis().Events().V1().Namespaces().Namespace(namespace).Events().Post(*u)
 		w.Write([]byte("{}"))
 	}).Methods("POST", "PUT", "PATCH")

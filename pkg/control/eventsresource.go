@@ -3,20 +3,27 @@ package control
 import (
 	"go-kube/pkg/storage"
 
+	v1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
 )
 
 type EventsResource interface {
-	Get() eventsv1.EventList
+	GetEventsApiEvents() eventsv1.EventList
+	GetCoreApiEvents() v1.EventList
 }
 
 type EventsResourceImpl struct {
 	storage *storage.StorageContainer
 }
 
-func (impl EventsResourceImpl) Get() eventsv1.EventList {
+func (impl EventsResourceImpl) GetEventsApiEvents() eventsv1.EventList {
 	controller := NewEventsController(impl.storage)
-	return controller.GetEvents()
+	return controller.GetEventsApiEvents()
+}
+
+func (impl EventsResourceImpl) GetCoreApiEvents() v1.EventList {
+	controller := NewEventsController(impl.storage)
+	return controller.GetCoreApiEvents()
 }
 
 func NewEventsResource(storage *storage.StorageContainer) EventsResourceImpl {
