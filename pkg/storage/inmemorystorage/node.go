@@ -41,6 +41,9 @@ func (s *NodeInMemoryStorage) PutNode(nodeName string, node core.Node) core.Node
 		}
 	}
 	s.nodes.Items[indexForReplacement] = node
+	// Fire modified event
+	nodeModifiedEvent := metav1.WatchEvent{Type: "MODIFIED", Object: runtime.RawExtension{Object: &node}}
+	s.nodeEventChan <- nodeModifiedEvent
 	return node
 }
 

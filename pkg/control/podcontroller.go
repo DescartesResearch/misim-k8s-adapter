@@ -152,10 +152,6 @@ func (c *PodController) updatePodChannel() {
 	klog.V(3).Info("Processessed " + strconv.Itoa(processedPodCount) + " of " + strconv.Itoa(podsToBePlacedCount))
 	if processedPodCount == podsToBePlacedCount {
 		if c.shouldScaleUp() {
-			// @Martin Was?
-			// Copied over from KubeUpdateController
-			// Do we subscribe just to cancel it again???
-			// Why?
 			broadcaster := c.storage.Nodes.GetNodeUpscalingChannel()
 			nodeChannel := broadcaster.Subscribe()
 			defer broadcaster.CancelSubscription(nodeChannel)

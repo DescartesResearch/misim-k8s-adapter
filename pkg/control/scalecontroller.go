@@ -50,7 +50,7 @@ func (c ScaleController) ScaleMachineSet(machineSetName string, u autoscaling.Sc
 		}
 
 		// Scale nodes
-		c.ScaleUpNodes(addedMachines)
+		c.ScaleUpNodes(machineSet, addedMachines)
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func (c ScaleController) ScaleDownNodes(amount int) ([]core.Node, error) {
 	return changedNodes, nil
 }
 
-func (c ScaleController) ScaleUpNodes(addedMachines []cluster.Machine) {
+func (c ScaleController) ScaleUpNodes(machineSet cluster.MachineSet, addedMachines []cluster.Machine) {
 	newNodes := make([]core.Node, len(addedMachines))
 	for i, machine := range addedMachines {
 		cpuQuantity, _ := resource.ParseQuantity(machine.Annotations["cpu"])
@@ -152,7 +152,7 @@ func (c ScaleController) ScaleUpNodes(addedMachines []cluster.Machine) {
 		podsQuantity, _ := resource.ParseQuantity(machine.Annotations["pods"])
 		newNodes[i] = core.Node{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Node"},
-			ObjectMeta: metav1.ObjectMeta{Name: machine.Name + "-node"},
+			ObjectMeta: metav1.ObjectMeta{Name: machine.Name + "-node", Labels: machineSet.Spec.Template.ObjectMeta.Labels, Annotations: machineSet.Spec.Template.ObjectMeta.Annotations},
 			Spec:       core.NodeSpec{ProviderID: "clusterapi://" + machine.Name},
 			Status: core.NodeStatus{Phase: "Running", Conditions: []core.NodeCondition{
 				{
