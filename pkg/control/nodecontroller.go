@@ -2,6 +2,7 @@ package control
 
 import (
 	"encoding/json"
+	"time"
 
 	"go-kube/pkg/misim"
 	"go-kube/pkg/storage"
@@ -40,6 +41,13 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 					klog.V(1).Infof("Cannot unmarshal provided node, raw data: %s", string(event.Object.Raw))
 					return misim.NodeUpdateResponse{}
 				}
+				now := metav1.NewTime(time.Now())
+				node.Status.Conditions[0].Reason = "SimulationNodeFailed"
+				node.Status.Conditions[0].Message = "Node marked failed by MiSim"
+				node.Status.Conditions[0].LastHeartbeatTime = now
+				node.Status.Conditions[0].LastTransitionTime = now
+				klog.V(5).Infof("Modified node %s with condition +%v", node.Name, node.Status.Conditions[0])
+				c.storage.Nodes.PutNode(node.Name, node)
 				machineList, _ := c.storage.Machines.GetMachines()
 				machineSetName := ""
 				for _, machine := range machineList.Items {
@@ -61,8 +69,6 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 					klog.V(5).Infof("Modified machine set %s to replica counts (%d, %d, %d, %d)", set.Name, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
 					c.storage.MachineSets.PutMachineSet(machineSetName, set)
 				}
-				klog.V(5).Infof("Modified node %s to NotReady", node.Name)
-				c.storage.Nodes.PutNode(node.Name, node)
 			}
 		}
 	} else {

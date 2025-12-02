@@ -2,12 +2,15 @@ package inmemorystorage
 
 import (
 	"context"
-	"go-kube/internal/broadcast"
+	"fmt"
 	"strconv"
+
+	"go-kube/internal/broadcast"
 
 	v1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 	cluster "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -49,6 +52,17 @@ func (s *MachineSetsInMemoryStorage) PutMachineSet(machineSetName string, machin
 			break
 		}
 	}
+	rv := 1
+	if s.machineSets.Items[index].ResourceVersion != "" {
+		parsed, err := strconv.Atoi(s.machineSets.Items[index].ResourceVersion)
+		if err != nil {
+			panic(fmt.Sprintf("Could not parse resource version for machine set %s: %v", machineSet.Name, err))
+		}
+		klog.V(5).Infof("Old machine set resource version: %d", parsed)
+		rv = parsed + 1
+	}
+	machineSet.ResourceVersion = strconv.Itoa(rv)
+	klog.V(5).Infof("New machine set resource version: %s", machineSet.ResourceVersion)
 	s.machineSets.Items[index] = machineSet
 	// Fire MODIFIED event
 	s.machineSetsEventChan <- metav1.WatchEvent{Type: "MODIFIED", Object: runtime.RawExtension{Object: &machineSet}}
@@ -64,10 +78,12 @@ func (s *MachineSetsInMemoryStorage) GetMachineSetsScale(machineSetName string) 
 		}
 	}
 
-	result := v1.Scale{TypeMeta: metav1.TypeMeta{APIVersion: "autoscaling/v1", Kind: "Scale"},
+	result := v1.Scale{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "autoscaling/v1", Kind: "Scale"},
 		ObjectMeta: metav1.ObjectMeta{Name: machineSetName},
 		Spec:       v1.ScaleSpec{Replicas: *machineSetRef.Spec.Replicas},
-		Status:     v1.ScaleStatus{Replicas: *machineSetRef.Spec.Replicas}}
+		Status:     v1.ScaleStatus{Replicas: *machineSetRef.Spec.Replicas},
+	}
 
 	return result
 }

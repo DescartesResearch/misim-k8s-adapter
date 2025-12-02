@@ -2,6 +2,8 @@ package inmemorystorage
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"go-kube/internal/broadcast"
 
@@ -51,6 +53,17 @@ func (s *MachineInMemoryStorage) PutMachine(machineName string, u cluster.Machin
 			break
 		}
 	}
+	rv := 1
+	if s.machines.Items[indexForReplacement].ResourceVersion != "" {
+		parsed, err := strconv.Atoi(s.machines.Items[indexForReplacement].ResourceVersion)
+		if err != nil {
+			panic(fmt.Sprintf("Could not parse resource version for machine %s: %v", u.Name, err))
+		}
+		klog.V(5).Infof("Old machine resource version: %d", parsed)
+		rv = parsed + 1
+	}
+	u.ResourceVersion = strconv.Itoa(rv)
+	klog.V(5).Infof("New machine resource version: %s", u.ResourceVersion)
 	s.machines.Items[indexForReplacement] = u
 
 	s.machineEventChan <- metav1.WatchEvent{Type: "MODIFIED", Object: runtime.RawExtension{Object: &u}}
