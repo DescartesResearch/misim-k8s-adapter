@@ -2,7 +2,9 @@ package inmemorystorage
 
 import (
 	"context"
+
 	"go-kube/internal/broadcast"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
@@ -50,6 +52,8 @@ func (s *MachineInMemoryStorage) PutMachine(machineName string, u cluster.Machin
 		}
 	}
 	s.machines.Items[indexForReplacement] = u
+
+	s.machineEventChan <- metav1.WatchEvent{Type: "MODIFIED", Object: runtime.RawExtension{Object: &u}}
 	return u
 }
 

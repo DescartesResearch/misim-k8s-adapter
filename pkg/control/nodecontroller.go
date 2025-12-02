@@ -2,8 +2,10 @@ package control
 
 import (
 	"encoding/json"
+
 	"go-kube/pkg/misim"
 	"go-kube/pkg/storage"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +45,9 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef.Name == node.Name {
 						machineSetName = machine.OwnerReferences[0].Name
+
+						machine.Status.Phase = "FAILED"
+						c.storage.Machines.PutMachine(machine.Name, machine)
 						break
 					}
 				}
@@ -50,6 +55,8 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 					set := c.storage.MachineSets.GetMachineSet(machineSetName)
 					set.Status.ReadyReplicas--
 					set.Status.AvailableReplicas--
+					set.Status.Replicas--
+					set.Status.FullyLabeledReplicas--
 					c.storage.MachineSets.PutMachineSet(machineSetName, set)
 				}
 				klog.V(5).Infof("Modified node %s to NotReady", node.Name)
