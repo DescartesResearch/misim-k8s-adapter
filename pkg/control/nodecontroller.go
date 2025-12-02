@@ -47,6 +47,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 						machineSetName = machine.OwnerReferences[0].Name
 
 						machine.Status.Phase = "FAILED"
+						klog.V(5).Infof("Modified machine %s to phase FAILED", machine.Name)
 						c.storage.Machines.PutMachine(machine.Name, machine)
 						break
 					}
@@ -57,6 +58,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 					set.Status.AvailableReplicas--
 					set.Status.Replicas--
 					set.Status.FullyLabeledReplicas--
+					klog.V(5).Infof("Modified machine set %s to replica counts (%d, %d, %d, %d)", set.Name, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
 					c.storage.MachineSets.PutMachineSet(machineSetName, set)
 				}
 				klog.V(5).Infof("Modified node %s to NotReady", node.Name)
