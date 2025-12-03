@@ -3,6 +3,7 @@ package scale
 import (
 	"go-kube/pkg/control"
 	"go-kube/pkg/storage"
+
 	v1 "k8s.io/api/autoscaling/v1"
 )
 

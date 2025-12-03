@@ -82,8 +82,10 @@ func (s *MachineSetsInMemoryStorage) GetMachineSetsScale(machineSetName string) 
 		TypeMeta:   metav1.TypeMeta{APIVersion: "autoscaling/v1", Kind: "Scale"},
 		ObjectMeta: metav1.ObjectMeta{Name: machineSetName},
 		Spec:       v1.ScaleSpec{Replicas: *machineSetRef.Spec.Replicas},
-		Status:     v1.ScaleStatus{Replicas: *machineSetRef.Spec.Replicas},
+		Status:     v1.ScaleStatus{Replicas: machineSetRef.Status.Replicas},
 	}
+
+	klog.V(5).Infof("Returning scale information for machine set %s: +%v", machineSetName, result)
 
 	return result
 }
