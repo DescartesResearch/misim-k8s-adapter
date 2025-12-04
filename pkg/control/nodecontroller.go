@@ -62,11 +62,12 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				}
 				if machineSetName != "" {
 					set := c.storage.MachineSets.GetMachineSet(machineSetName)
+					(*set.Spec.Replicas)--
 					set.Status.ReadyReplicas--
 					set.Status.AvailableReplicas--
 					set.Status.Replicas--
 					set.Status.FullyLabeledReplicas--
-					klog.V(5).Infof("Modified machine set %s to replica counts (%d, %d, %d, %d)", set.Name, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
+					klog.V(5).Infof("Modified machine set %s to spec replica %d and status replica counts (%d, %d, %d, %d)", set.Name, *set.Spec.Replicas, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
 					c.storage.MachineSets.PutMachineSet(machineSetName, set)
 				}
 			}
