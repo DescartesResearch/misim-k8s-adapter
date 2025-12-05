@@ -54,7 +54,10 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 					if machine.Status.NodeRef.Name == node.Name {
 						machineSetName = machine.OwnerReferences[0].Name
 
+						machine.Status.NodeRef = nil
 						machine.Status.Phase = "FAILED"
+						*machine.Status.FailureReason = "SimulationNodeFailed"
+						*machine.Status.FailureMessage = "Machine marked failed by MiSim"
 						klog.V(5).Infof("Modified machine %s to phase FAILED", machine.Name)
 						c.storage.Machines.PutMachine(machine.Name, machine)
 						break
@@ -62,7 +65,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				}
 				if machineSetName != "" {
 					set := c.storage.MachineSets.GetMachineSet(machineSetName)
-					(*set.Spec.Replicas)--
+					// (*set.Spec.Replicas)--
 					set.Status.ReadyReplicas--
 					set.Status.AvailableReplicas--
 					set.Status.Replicas--
