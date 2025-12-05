@@ -69,7 +69,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				}
 				if machineSetName != "" {
 					set := c.storage.MachineSets.GetMachineSet(machineSetName)
-					// (*set.Spec.Replicas)--
+					(*set.Spec.Replicas)--
 					set.Status.ReadyReplicas--
 					set.Status.AvailableReplicas--
 					set.Status.Replicas--
