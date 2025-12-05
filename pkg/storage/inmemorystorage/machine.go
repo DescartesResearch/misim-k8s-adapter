@@ -90,7 +90,7 @@ func (s *MachineInMemoryStorage) DeleteMachine(machineName string) cluster.Machi
 	s.machines.Items[index] = s.machines.Items[len(s.machines.Items)-1]
 	s.machines.Items = s.machines.Items[:len(s.machines.Items)-1]
 	// Fire deleted event
-	s.machineEventChan <- metav1.WatchEvent{Type: "DELETED", Object: runtime.RawExtension{Object: &s.machines.Items[index]}}
+	s.machineEventChan <- metav1.WatchEvent{Type: "DELETED", Object: runtime.RawExtension{Object: &deletedMachine}}
 	return deletedMachine
 }
 
