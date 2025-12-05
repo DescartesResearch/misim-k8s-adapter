@@ -48,6 +48,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				node.Status.Conditions[0].LastTransitionTime = now
 				klog.V(5).Infof("Modified node %s with condition +%v", node.Name, node.Status.Conditions[0])
 				c.storage.Nodes.PutNode(node.Name, node)
+				c.storage.Nodes.DeleteNode(node.Name)
 				machineList, _ := c.storage.Machines.GetMachines()
 				machineSetName := ""
 				for _, machine := range machineList.Items {
