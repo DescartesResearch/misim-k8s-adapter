@@ -2,8 +2,6 @@ package inmemorystorage
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 
 	"go-kube/internal/broadcast"
 	"go-kube/pkg/storage"
@@ -11,7 +9,6 @@ import (
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
 )
 
 type NodeInMemoryStorage struct {
@@ -45,17 +42,17 @@ func (s *NodeInMemoryStorage) PutNode(nodeName string, node core.Node) core.Node
 			break
 		}
 	}
-	rv := 1
-	if s.nodes.Items[indexForReplacement].ResourceVersion != "" {
-		parsed, err := strconv.Atoi(s.nodes.Items[indexForReplacement].ResourceVersion)
-		if err != nil {
-			panic(fmt.Sprintf("Could not parse resource version for node %s: %v", node.Name, err))
-		}
-		klog.V(5).Infof("Old node resource version: %d", parsed)
-		rv = parsed + 1
-	}
-	node.ResourceVersion = strconv.Itoa(rv)
-	klog.V(5).Infof("New node resource version: %s", node.ResourceVersion)
+	// rv := 1
+	// if s.nodes.Items[indexForReplacement].ResourceVersion != "" {
+	// 	parsed, err := strconv.Atoi(s.nodes.Items[indexForReplacement].ResourceVersion)
+	// 	if err != nil {
+	// 		panic(fmt.Sprintf("Could not parse resource version for node %s: %v", node.Name, err))
+	// 	}
+	// 	klog.V(5).Infof("Old node resource version: %d", parsed)
+	// 	rv = parsed + 1
+	// }
+	// node.ResourceVersion = strconv.Itoa(rv)
+	// klog.V(5).Infof("New node resource version: %s", node.ResourceVersion)
 	s.nodes.Items[indexForReplacement] = node
 	// Fire modified event
 	nodeModifiedEvent := metav1.WatchEvent{Type: "MODIFIED", Object: runtime.RawExtension{Object: &node}}
