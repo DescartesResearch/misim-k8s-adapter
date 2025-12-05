@@ -48,7 +48,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				node.Status.Conditions[0].LastTransitionTime = now
 				klog.V(5).Infof("Modified node %s with condition +%v", node.Name, node.Status.Conditions[0])
 				c.storage.Nodes.PutNode(node.Name, node)
-				c.storage.Nodes.DeleteNode(node.Name)
+				// c.storage.Nodes.DeleteNode(node.Name)
 				machineList, _ := c.storage.Machines.GetMachines()
 				machineSetName := ""
 				for _, machine := range machineList.Items {
@@ -63,7 +63,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 						// *machine.Status.FailureMessage = "Machine marked failed by MiSim"
 						klog.V(5).Infof("Modified machine %s to phase FAILED", machine.Name)
 						c.storage.Machines.PutMachine(machine.Name, machine)
-						c.storage.Machines.DeleteMachine(machine.Name)
+						// c.storage.Machines.DeleteMachine(machine.Name)
 						break
 					}
 				}
