@@ -57,10 +57,12 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 						*machine.Spec.ProviderID = ""
 						machine.Status.NodeRef = nil
 						machine.Status.Phase = "FAILED"
+
 						// *machine.Status.FailureReason = "SimulationNodeFailed"
 						// *machine.Status.FailureMessage = "Machine marked failed by MiSim"
 						klog.V(5).Infof("Modified machine %s to phase FAILED", machine.Name)
 						c.storage.Machines.PutMachine(machine.Name, machine)
+						c.storage.Machines.DeleteMachine(machine.Name)
 						break
 					}
 				}
