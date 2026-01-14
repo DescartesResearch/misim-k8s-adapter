@@ -120,6 +120,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 									Spec:   cluster.MachineSpec{ProviderID: &providerID},
 									Status: cluster.MachineStatus{Phase: "Running", NodeRef: &nodeRef},
 								}
+								c.storage.Machines.IncrementMachineCount()
 								klog.V(5).Infof("Adding new machine %s", newMachine.Name)
 								c.storage.Machines.AddMachine(newMachine)
 								// Add new node
@@ -156,6 +157,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 							}
 
 						}
+						break
 					}
 				}
 			}
