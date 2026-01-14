@@ -76,14 +76,14 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 						c.storage.MachineSets.PutMachineSet(machineSetName, set)
 
 						// Check for minimum label
-						labels := set.GetLabels()
-						if labelValue, ok := labels["cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size"]; ok {
+						if labelValue, ok := set.Labels["cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size"]; ok {
 							minNodes, err := strconv.Atoi(labelValue)
 							if err != nil {
 								break
 							}
-							// If minimum label is violated:
+							klog.V(5).Infof("Minimum replica count for machine set %s is %d", set.Name, minNodes)
 
+							// If minimum label is violated:
 							if *set.Spec.Replicas < int32(minNodes) {
 								// Update machine set
 								(*set.Spec.Replicas)++
