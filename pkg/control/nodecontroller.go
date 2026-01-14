@@ -2,12 +2,15 @@ package control
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"time"
 
 	"go-kube/pkg/misim"
 	"go-kube/pkg/storage"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
@@ -48,34 +51,112 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				node.Status.Conditions[0].LastTransitionTime = now
 				klog.V(5).Infof("Modified node %s with condition +%v", node.Name, node.Status.Conditions[0])
 				c.storage.Nodes.PutNode(node.Name, node)
-				// c.storage.Nodes.DeleteNode(node.Name)
 				machineList, _ := c.storage.Machines.GetMachines()
-				machineSetName := ""
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef.Name == node.Name {
-						machineSetName = machine.OwnerReferences[0].Name
+						machineSetName := machine.OwnerReferences[0].Name
 
-						*machine.Spec.ProviderID = ""
-						machine.Status.NodeRef = nil
+						// *machine.Spec.ProviderID = ""
+						// machine.Status.NodeRef = nil
 						machine.Status.Phase = "FAILED"
 
-						// *machine.Status.FailureReason = "SimulationNodeFailed"
-						// *machine.Status.FailureMessage = "Machine marked failed by MiSim"
 						klog.V(5).Infof("Modified machine %s to phase FAILED", machine.Name)
 						c.storage.Machines.PutMachine(machine.Name, machine)
-						// c.storage.Machines.DeleteMachine(machine.Name)
-						break
+
+						// Get machine set by name
+						set := c.storage.MachineSets.GetMachineSet(machineSetName)
+						// Decrease replica counts
+
+						(*set.Spec.Replicas)--
+						set.Status.ReadyReplicas--
+						set.Status.AvailableReplicas--
+						set.Status.Replicas--
+						set.Status.FullyLabeledReplicas--
+						klog.V(5).Infof("Modified machine set %s to spec replica %d and status replica counts (%d, %d, %d, %d)", set.Name, *set.Spec.Replicas, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
+						c.storage.MachineSets.PutMachineSet(machineSetName, set)
+
+						// Check for minimum label
+						labels := set.GetLabels()
+						if labelValue, ok := labels["cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size"]; ok {
+							minNodes, err := strconv.Atoi(labelValue)
+							if err != nil {
+								break
+							}
+							// If minimum label is violated:
+
+							if *set.Spec.Replicas < int32(minNodes) {
+								// Update machine set
+								(*set.Spec.Replicas)++
+								set.Status.ReadyReplicas++
+								set.Status.AvailableReplicas++
+								set.Status.Replicas++
+								set.Status.FullyLabeledReplicas++
+								klog.V(5).Infof("Modified machine set %s to spec replica %d and status replica counts (%d, %d, %d, %d)", set.Name, *set.Spec.Replicas, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
+								c.storage.MachineSets.PutMachineSet(machineSetName, set)
+
+								// Add new machine
+								nextMachineID := c.storage.Machines.GetMachineCount()
+								machineName := fmt.Sprintf("%s-machine-%d", set.Name, nextMachineID)
+								providerID := fmt.Sprintf("clusterapi://%s", machineName)
+								nodeName := fmt.Sprintf("%s-node", machineName)
+								nodeRef := v1.ObjectReference{Kind: "Node", APIVersion: "v1", Name: nodeName}
+
+								newMachine := cluster.Machine{
+									TypeMeta: metav1.TypeMeta{APIVersion: "cluster.x-k8s-io/v1beta1", Kind: "Machine"},
+									ObjectMeta: metav1.ObjectMeta{
+										Name: machineName, Namespace: "kube-system", Annotations: map[string]string{
+											"machine-set-name": set.Name,
+											"cpu":              set.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"],
+											"memory":           set.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"],
+											"pods":             set.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"],
+										}, OwnerReferences: []metav1.OwnerReference{
+											{
+												APIVersion: "cluster.x-k8s.io/v1beta1",
+												Kind:       "MachineSet",
+												Name:       set.Name,
+											},
+										},
+									},
+									Spec:   cluster.MachineSpec{ProviderID: &providerID},
+									Status: cluster.MachineStatus{Phase: "Running", NodeRef: &nodeRef},
+								}
+								klog.V(5).Infof("Adding new machine %s", newMachine.Name)
+								c.storage.Machines.AddMachine(newMachine)
+								// Add new node
+
+								cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["cpu"])
+								memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["memory"])
+								podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["pods"])
+								newNode := v1.Node{
+									TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Node"},
+									ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: set.Spec.Template.ObjectMeta.Labels, Annotations: set.Spec.Template.ObjectMeta.Annotations},
+									Spec:       v1.NodeSpec{ProviderID: providerID},
+									Status: v1.NodeStatus{
+										Phase: "Running", Conditions: []v1.NodeCondition{
+											{
+												Type:   "Ready",
+												Status: "True",
+											},
+										},
+										Allocatable: map[v1.ResourceName]resource.Quantity{
+											"cpu":    cpuQuantity,
+											"memory": memoryQuantity,
+											"pods":   podsQuantity,
+										},
+										Capacity: map[v1.ResourceName]resource.Quantity{
+											"cpu":    cpuQuantity,
+											"memory": memoryQuantity,
+											"pods":   podsQuantity,
+										},
+									},
+								}
+
+								klog.V(5).Infof("Adding new node %s", newNode.Name)
+								c.storage.Nodes.AddNode(newNode)
+							}
+
+						}
 					}
-				}
-				if machineSetName != "" {
-					set := c.storage.MachineSets.GetMachineSet(machineSetName)
-					(*set.Spec.Replicas)--
-					set.Status.ReadyReplicas--
-					set.Status.AvailableReplicas--
-					set.Status.Replicas--
-					set.Status.FullyLabeledReplicas--
-					klog.V(5).Infof("Modified machine set %s to spec replica %d and status replica counts (%d, %d, %d, %d)", set.Name, *set.Spec.Replicas, set.Status.ReadyReplicas, set.Status.AvailableReplicas, set.Status.Replicas, set.Status.FullyLabeledReplicas)
-					c.storage.MachineSets.PutMachineSet(machineSetName, set)
 				}
 			}
 		}
