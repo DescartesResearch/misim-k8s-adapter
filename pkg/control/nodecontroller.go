@@ -76,8 +76,8 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 						c.storage.MachineSets.PutMachineSet(machineSetName, set)
 
 						// Check for minimum label
-						if labelValue, ok := set.Labels["cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size"]; ok {
-							minNodes, err := strconv.Atoi(labelValue)
+						if annotationValue, ok := set.Annotations["cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size"]; ok {
+							minNodes, err := strconv.Atoi(annotationValue)
 							if err != nil {
 								break
 							}
