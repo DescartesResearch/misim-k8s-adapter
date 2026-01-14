@@ -125,9 +125,9 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 								c.storage.Machines.AddMachine(newMachine)
 								// Add new node
 
-								cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["cpu"])
-								memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["memory"])
-								podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["pods"])
+								cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"])
+								memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"])
+								podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"])
 								newNode := v1.Node{
 									TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Node"},
 									ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: set.Spec.Template.ObjectMeta.Labels, Annotations: set.Spec.Template.ObjectMeta.Annotations},
