@@ -32,6 +32,8 @@ func (c NodeController) UpdateNodes(nodes v1.NodeList, events []metav1.WatchEven
 func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.WatchEvent, machineSets []cluster.MachineSet, machines []cluster.Machine) misim.NodeUpdateResponse {
 	klog.V(3).Infof("Machine-Node-Init: %d nodes, %d machine sets, %d machines", len(nodes.Items), len(machineSets), len(machines))
 
+	newNodes := make([]v1.Node, 0)
+
 	// Check whether machine sets etc. are already initialized, if yes, we need modified events, no additions
 	oldMachineSetList, _ := c.storage.MachineSets.GetMachineSets()
 	if oldMachineSetList.Items != nil {
@@ -157,7 +159,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 
 								klog.V(5).Infof("Adding new node %s", newNode.Name)
 								c.storage.Nodes.AddNode(newNode)
-								nodes.Items = append(nodes.Items, newNode)
+								newNodes = append(newNodes, newNode)
 							}
 
 						}
@@ -200,7 +202,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 	}
 
 	return misim.NodeUpdateResponse{
-		Data: nodes,
+		NewNodes: newNodes,
 	}
 }
 
