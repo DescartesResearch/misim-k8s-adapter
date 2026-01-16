@@ -25,7 +25,7 @@ func (c NodeController) UpdateNodes(nodes v1.NodeList, events []metav1.WatchEven
 	klog.V(3).Info("Node-Update: ", len(nodes.Items), " nodes")
 	c.storage.Nodes.StoreNodes(nodes, events)
 	return misim.NodeUpdateResponse{
-		Data: nodes,
+		NewNodes: []v1.Node{},
 	}
 }
 
