@@ -103,6 +103,10 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 								nodeName := fmt.Sprintf("%s-node", machineName)
 								nodeRef := v1.ObjectReference{Kind: "Node", APIVersion: "v1", Name: nodeName}
 
+								klog.V(5).Infof("Machine Set CPU: %s", set.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"])
+								klog.V(5).Infof("Machine Set Memory: %s", set.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"])
+								klog.V(5).Infof("Machine Set Pods: %s", set.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"])
+
 								newMachine := cluster.Machine{
 									TypeMeta: metav1.TypeMeta{APIVersion: "cluster.x-k8s-io/v1beta1", Kind: "Machine"},
 									ObjectMeta: metav1.ObjectMeta{
@@ -127,12 +131,12 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 								c.storage.Machines.AddMachine(newMachine)
 								// Add new node
 
-								cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"])
-								klog.V(5).Infof("Parsed CPU quantity for node %s: %s", nodeName, &cpuQuantity)
-								memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"])
-								klog.V(5).Infof("Parsed Memory quantity for node %s: %s", nodeName, &memoryQuantity)
-								podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"])
-								klog.V(5).Infof("Parsed Pods quantity for node %s: %s", nodeName, &podsQuantity)
+								// cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"])
+								// klog.V(5).Infof("Parsed CPU quantity for node %s: %s", nodeName, &cpuQuantity)
+								// memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"])
+								// klog.V(5).Infof("Parsed Memory quantity for node %s: %s", nodeName, &memoryQuantity)
+								// podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"])
+								// klog.V(5).Infof("Parsed Pods quantity for node %s: %s", nodeName, &podsQuantity)
 								newNode := v1.Node{
 									TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Node"},
 									ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: set.Spec.Template.ObjectMeta.Labels, Annotations: set.Spec.Template.ObjectMeta.Annotations},
@@ -145,14 +149,14 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 											},
 										},
 										Allocatable: map[v1.ResourceName]resource.Quantity{
-											"cpu":    cpuQuantity,
-											"memory": memoryQuantity,
-											"pods":   podsQuantity,
+											"cpu":    node.Status.Capacity["cpu"],
+											"memory": node.Status.Capacity["memory"],
+											"pods":   node.Status.Capacity["pods"],
 										},
 										Capacity: map[v1.ResourceName]resource.Quantity{
-											"cpu":    cpuQuantity,
-											"memory": memoryQuantity,
-											"pods":   podsQuantity,
+											"cpu":    node.Status.Capacity["cpu"],
+											"memory": node.Status.Capacity["memory"],
+											"pods":   node.Status.Capacity["pods"],
 										},
 									},
 								}
