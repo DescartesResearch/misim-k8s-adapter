@@ -31,7 +31,7 @@ type NodeUpdateRequest struct {
 
 // Response of the adapter to a NodeUpdateRequest from the simulation
 type NodeUpdateResponse struct {
-	Data v1.NodeList `json:"Updated NodeList with"`
+	NewNodes []v1.Node
 }
 
 // Update request from the simulation for pods
