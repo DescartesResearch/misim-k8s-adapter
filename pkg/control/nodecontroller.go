@@ -126,8 +126,11 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 								// Add new node
 
 								cpuQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/cpu"])
+								klog.V(5).Infof("Parsed CPU quantity for node %s: %s", nodeName, &cpuQuantity)
 								memoryQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/memory"])
+								klog.V(5).Infof("Parsed Memory quantity for node %s: %s", nodeName, &memoryQuantity)
 								podsQuantity, _ := resource.ParseQuantity(newMachine.Annotations["capacity.cluster-autoscaler.kubernetes.io/maxPods"])
+								klog.V(5).Infof("Parsed Pods quantity for node %s: %s", nodeName, &podsQuantity)
 								newNode := v1.Node{
 									TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Node"},
 									ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: set.Spec.Template.ObjectMeta.Labels, Annotations: set.Spec.Template.ObjectMeta.Annotations},
