@@ -1,14 +1,16 @@
 package control
 
 import (
+	"strconv"
+	"sync"
+
 	"go-kube/pkg/misim"
 	"go-kube/pkg/storage"
+
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
-	"strconv"
-	"sync"
 )
 
 type PodController struct {
@@ -27,6 +29,8 @@ func (c *PodController) UpdatePods(ur v1.PodList, events []metav1.WatchEvent, po
 		c.storage.Pods.BindedPodBuffer().Clear()
 		c.storage.AdapterState.StoreClusterAutoscalingDone(false)
 		c.storage.Nodes.NewNodes().Clear()
+		c.storage.Nodes.NewNodes().PutAll(c.storage.Nodes.NewNodeUpdateBuffer().Items())
+		c.storage.Nodes.NewNodeUpdateBuffer().Clear()
 		c.storage.Nodes.DeletedNodes().Clear()
 
 		// Store pods
@@ -35,7 +39,7 @@ func (c *PodController) UpdatePods(ur v1.PodList, events []metav1.WatchEvent, po
 		// If there were pods to be placed, wait for the response
 		if !c.storage.Pods.PodsToBePlaced().Empty() {
 			podUpdateChannel := c.storage.Pods.PodsUpdateChannel().InitChannel()
-			//c.storage.Pods.PodsUpdateChannel().InitChannel()
+			// c.storage.Pods.PodsUpdateChannel().InitChannel()
 			klog.V(3).Infof("Wait for pods to be placed...")
 			// wait for it
 			select {
@@ -91,7 +95,6 @@ func (c *PodController) createDefaultResponse() misim.PodsUpdateResponse {
 		NewNodes:     c.storage.Nodes.NewNodes().Items(),
 		DeletedNodes: c.storage.Nodes.DeletedNodes().Items(),
 	}
-
 }
 
 func (c *PodController) BindPod(podName string, nodeName string) {

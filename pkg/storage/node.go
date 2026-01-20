@@ -2,6 +2,7 @@ package storage
 
 import (
 	"go-kube/internal/broadcast"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,6 +26,8 @@ type NodeStorage interface {
 	GetNodeDownscalingChannel() *broadcast.BroadcastServer[v1.Node]
 	// New nodes that should be created because of updates
 	NewNodes() Buffer[v1.Node]
+	// New nodes that should be created because of node updates
+	NewNodeUpdateBuffer() Buffer[v1.Node]
 	// Nodes that should be deleted
 	DeletedNodes() Buffer[v1.Node]
 }

@@ -163,7 +163,8 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 
 								klog.V(5).Infof("Adding new node %s", newNode.Name)
 								c.storage.Nodes.AddNode(newNode)
-								newNodes = append(newNodes, newNode)
+								// newNodes = append(newNodes, newNode)
+								c.storage.Nodes.NewNodeUpdateBuffer().Put(newNode)
 							}
 
 						}

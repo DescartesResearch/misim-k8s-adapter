@@ -20,6 +20,7 @@ type NodeInMemoryStorage struct {
 	nodeUpscalingBroadcaster   *broadcast.BroadcastServer[core.Node]
 	nodeDownscalingBroadcaster *broadcast.BroadcastServer[core.Node]
 	newNodes                   InMemBuffer[core.Node]
+	newNodesFromUpdate         InMemBuffer[core.Node]
 	deletedNodes               InMemBuffer[core.Node]
 }
 
@@ -113,6 +114,10 @@ func (s *NodeInMemoryStorage) NewNodes() storage.Buffer[core.Node] {
 	return &s.newNodes
 }
 
+func (s *NodeInMemoryStorage) NewNodeUpdateBuffer() storage.Buffer[core.Node] {
+	return &s.newNodesFromUpdate
+}
+
 func (s *NodeInMemoryStorage) DeletedNodes() storage.Buffer[core.Node] {
 	return &s.deletedNodes
 }
@@ -130,7 +135,8 @@ func NewNodeInMemoryStorage() NodeInMemoryStorage {
 		nodeDownscalingBroadcaster: broadcast.NewBroadcastServer(context.TODO(), "NodeDownscalingBroadcaster", nodeDownscalingChan),
 		nodeUpscalingBroadcaster:   broadcast.NewBroadcastServer(context.TODO(), "NodeUpscalingBroadcaster", nodeUpscalingChan),
 
-		newNodes:     NewInMemBuffer[core.Node](),
-		deletedNodes: NewInMemBuffer[core.Node](),
+		newNodes:           NewInMemBuffer[core.Node](),
+		newNodesFromUpdate: NewInMemBuffer[core.Node](),
+		deletedNodes:       NewInMemBuffer[core.Node](),
 	}
 }
