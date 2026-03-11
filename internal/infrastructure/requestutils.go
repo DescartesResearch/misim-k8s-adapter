@@ -35,6 +35,21 @@ func HandleRequestWithJSONBody[B any, T any](supplier func(B) T) Endpoint {
 	}
 }
 
+func HandleRequestWithRequestJSONBodyOnly[B any](supplier func(B)) Endpoint {
+	return func(w http.ResponseWriter, r *http.Request) {
+		klog.V(7).Infof("Req: %s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery)
+		reqBody, _ := io.ReadAll(r.Body)
+		var payload B
+		err := json.Unmarshal(reqBody, &payload)
+		if err != nil {
+			klog.V(1).ErrorS(err, "There was an error decoding the json. err = %s", err)
+			w.WriteHeader(500)
+			return
+		}
+		supplier(payload)
+	}
+}
+
 func HandleRequestWithParamsAndJSONBody[B any, T any](supplier func(map[string]string, B) T) Endpoint {
 	return func(w http.ResponseWriter, r *http.Request) {
 		klog.V(7).Infof("Req: %s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery)

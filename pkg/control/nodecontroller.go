@@ -17,22 +17,57 @@ import (
 	cluster "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
+// NodeMonitorGracePeriodSeconds defines the duration (in seconds) that the
+// Kubernetes node controller waits without receiving a heartbeat from a node
+// before marking it as NotReady.
+//
+// This corresponds to the kube-controller-manager flag --node-monitor-grace-period.
+// See the official documentation for details:
+// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/
+const NodeMonitorGracePeriodSeconds = 50
+
+// NodeMonitorPeriodSeconds defines the period for syncing NodeStatus updates in the node controller.
+//
+// This corresponds to the kube-controller-manager flag --node-monitor-period.
+// See the official documentation for details:
+// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/
+const NodeMonitorPeriodSeconds = 5
+
+// DefaultNotReadyTolerationSeconds defines the duration (in seconds)
+// of the toleration for notReady:NoExecute that is added by default
+// to every pod that does not already have such a toleration.
+const DefaultNotReadyTolerationSeconds = 300
+
+var (
+	// UnreachableTaintTemplate is the taint for when a node becomes unreachable.
+	UnreachableTaintTemplate = &v1.Taint{
+		Key:    v1.TaintNodeUnreachable,
+		Effect: v1.TaintEffectNoExecute,
+	}
+
+	// NotReadyTaintTemplate is the taint for when a node is not ready for
+	// executing pods
+	NotReadyTaintTemplate = &v1.Taint{
+		Key:    v1.TaintNodeNotReady,
+		Effect: v1.TaintEffectNoExecute,
+	}
+)
+
+// NodeController handles all node-related requests sent by the simulation.
 type NodeController struct {
 	storage *storage.StorageContainer
 }
 
-func (c NodeController) UpdateNodes(nodes v1.NodeList, events []metav1.WatchEvent) misim.NodeUpdateResponse {
+// UpdateNodes handles node updates when there is no cluster autoscaler.
+func (c *NodeController) UpdateNodes(nodes v1.NodeList, events []metav1.WatchEvent) {
 	klog.V(3).Info("Node-Update: ", len(nodes.Items), " nodes")
 	c.storage.Nodes.StoreNodes(nodes, events)
-	return misim.NodeUpdateResponse{
-		NewNodes: []v1.Node{},
-	}
 }
 
-func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.WatchEvent, machineSets []cluster.MachineSet, machines []cluster.Machine) misim.NodeUpdateResponse {
+// InitMachinesNodes handles node updates when machines are present
+// (i.e., the cluster autoscaler is connected).
+func (c *NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.WatchEvent, machineSets []cluster.MachineSet, machines []cluster.Machine) {
 	klog.V(3).Infof("Machine-Node-Init: %d nodes, %d machine sets, %d machines", len(nodes.Items), len(machineSets), len(machines))
-
-	newNodes := make([]v1.Node, 0)
 
 	// Check whether machine sets etc. are already initialized, if yes, we need modified events, no additions
 	oldMachineSetList, _ := c.storage.MachineSets.GetMachineSets()
@@ -44,7 +79,7 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 				err := json.Unmarshal(event.Object.Raw, &node)
 				if err != nil {
 					klog.V(1).Infof("Cannot unmarshal provided node, raw data: %s", string(event.Object.Raw))
-					return misim.NodeUpdateResponse{}
+					return
 				}
 				now := metav1.NewTime(time.Now())
 				node.Status.Conditions[0].Reason = "SimulationNodeFailed"
@@ -163,7 +198,6 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 
 								klog.V(5).Infof("Adding new node %s", newNode.Name)
 								c.storage.Nodes.AddNode(newNode)
-								// newNodes = append(newNodes, newNode)
 								c.storage.Nodes.NewNodeUpdateBuffer().Put(newNode)
 							}
 
@@ -205,12 +239,164 @@ func (c NodeController) InitMachinesNodes(nodes v1.NodeList, events []metav1.Wat
 		// third, store the nodes
 		c.storage.Nodes.StoreNodes(nodes, events)
 	}
+}
 
-	return misim.NodeUpdateResponse{
-		NewNodes: newNodes,
+// HandleNodeFailure processes a list of pods running on failed nodes and determines
+// when each pod should be evicted based on its tolerations.
+//
+// For each pod in `failedPods`, the function checks the pod's tolerations for the
+// "NotReady" taint with effect `NoExecute`:
+//   - If the pod has a toleration with `TolerationSeconds == nil`, it is never evicted
+//   - If the toleration is zero or negative, the pod is evicted immediately (0 seconds).
+//   - If the toleration is positive, the pod is scheduled for eviction after that many seconds.
+//
+// Pods without a matching toleration are scheduled using the default eviction delay
+// defined by `DefaultNotReadyTolerationSeconds`.
+func (c *NodeController) HandleNodeFailure(failedPods []string) misim.NodeFailureResponse {
+	evictionEvents := make(map[int64][]string, len(failedPods))
+NEXT:
+	for _, name := range failedPods {
+		pod := c.storage.Pods.GetPod(name)
+		for _, toleration := range pod.Spec.Tolerations {
+			if toleration.Effect == v1.TaintEffectNoExecute && toleration.Key == v1.TaintNodeNotReady {
+				tolerationSeconds := toleration.TolerationSeconds
+				switch {
+				case tolerationSeconds == nil:
+					// The pod should never be evicted
+					// Thus, we do not include it in the response
+					continue NEXT
+				case *tolerationSeconds <= int64(0):
+					// Treat negative and zero values as immediate eviction
+					// (as per the official toleration docs)
+					evictionEvents[0] = append(evictionEvents[0], name)
+					continue NEXT
+				case *tolerationSeconds > int64(0):
+					evictionEvents[*tolerationSeconds] = append(evictionEvents[*tolerationSeconds], name)
+					continue NEXT
+				}
+			}
+		}
+		evictionEvents[DefaultNotReadyTolerationSeconds] = append(evictionEvents[DefaultNotReadyTolerationSeconds], name)
+	}
+
+	return misim.NodeFailureResponse{
+		NodeMonitorGracePeriodSeconds: NodeMonitorGracePeriodSeconds,
+		NoExecuteTaintDelaySeconds:    NodeMonitorPeriodSeconds,
+		PodEvictionEvents:             evictionEvents,
 	}
 }
 
+// HandleMarkNodeNotReady marks all given nodes as "NotReady" and returns their updated kubernetes
+// representations.
+func (c *NodeController) HandleMarkNodeNotReady(nodes []string) misim.NodeNotReadyResponse {
+	updatedNodes := make([]v1.Node, 0, len(nodes))
+	updatedMachines := make([]cluster.Machine, 0, len(nodes))
+	updatedMachineSets := make([]cluster.MachineSet, 0, len(nodes))
+	for _, name := range nodes {
+		node := c.storage.Nodes.GetNode(name)
+
+		// Node Condition
+		foundNotReady := false
+		for i, condition := range node.Status.Conditions {
+			if condition.Type == v1.NodeReady {
+				foundNotReady = true
+				condition.Status = v1.ConditionUnknown
+				condition.Reason = "SimulationNodeFailed"
+				node.Status.Conditions[i] = condition
+				break
+			}
+		}
+		if !foundNotReady {
+			condition := v1.NodeCondition{Type: v1.NodeReady, Status: v1.ConditionUnknown, Reason: "SimulationNodeFailed"}
+			node.Status.Conditions = append(node.Status.Conditions, condition)
+		}
+
+		// Taints
+		found := false
+		for i, taint := range node.Spec.Taints {
+			if taint.Key == v1.TaintNodeUnschedulable {
+				found = true
+				taint.Effect = v1.TaintEffectNoSchedule
+				node.Spec.Taints[i] = taint
+				break
+			}
+		}
+		if !found {
+			taint := v1.Taint{Key: v1.TaintNodeUnschedulable, Effect: v1.TaintEffectNoSchedule}
+			node.Spec.Taints = append(node.Spec.Taints, taint)
+		}
+		updatedNodes = append(updatedNodes, node)
+
+		machines, _ := c.storage.Machines.GetMachines()
+		for _, machine := range machines.Items {
+			if machine.Status.NodeRef.Name == node.Name {
+				for _, owner := range machine.OwnerReferences {
+					machineSet := c.storage.MachineSets.GetMachineSet(owner.Name)
+					machineSet.Status.ReadyReplicas--
+					machineSet.Status.AvailableReplicas--
+					updatedMachineSets = append(updatedMachineSets, machineSet)
+					c.storage.MachineSets.PutMachineSet(owner.Name, machineSet)
+				}
+				break
+			}
+		}
+		c.storage.Nodes.PutNode(node.Name, node)
+
+	}
+
+	return misim.NodeNotReadyResponse{
+		Nodes:       updatedNodes,
+		Machines:    updatedMachines,
+		MachineSets: updatedMachineSets,
+	}
+}
+
+// HandleMarkNodeNoExecute adds a NoExecute taint to all requested nodes and returns their updated
+// Kubernetes representations.
+func (c *NodeController) HandleMarkNodeNoExecute(nodes []string) misim.NodeNoExecuteResponse {
+	updatedNodes := make([]v1.Node, 0, len(nodes))
+	for _, name := range nodes {
+		node := c.storage.Nodes.GetNode(name)
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == v1.NodeReady {
+				taintToAdd := v1.Taint{}
+				oppositeTaint := v1.Taint{}
+				// Because we want to mimic NodeStatus.Condition["Ready"] we make "unreachable" and "not ready" taints mutually exclusive.
+				// See: https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/nodelifecycle/node_lifecycle_controller.go
+				switch condition.Status {
+				case v1.ConditionFalse:
+					taintToAdd = *NotReadyTaintTemplate
+					oppositeTaint = *UnreachableTaintTemplate
+				case v1.ConditionUnknown:
+					taintToAdd = *UnreachableTaintTemplate
+					oppositeTaint = *NotReadyTaintTemplate
+				default:
+					// It seems that the Node is ready again, so there's no need to taint it.
+					klog.V(4).Info("Node %s was in a taint queue, but it's ready now. Ignoring taint request", name)
+				}
+
+				now := metav1.Now()
+				taintToAdd.TimeAdded = &now
+				for i := range node.Spec.Taints {
+					taint := node.Spec.Taints[i]
+					if taint.Key == oppositeTaint.Key && taint.Effect == oppositeTaint.Effect {
+						l := len(node.Spec.Taints)
+						node.Spec.Taints[i] = node.Spec.Taints[l-1]
+						node.Spec.Taints = node.Spec.Taints[:l-1]
+						break
+					}
+				}
+				node.Spec.Taints = append(node.Spec.Taints, taintToAdd)
+			}
+		}
+	}
+
+	return misim.NodeNoExecuteResponse{
+		Nodes: updatedNodes,
+	}
+}
+
+// NewNodeController creates a new node controller.
 func NewNodeController(storage *storage.StorageContainer) NodeController {
 	return NodeController{
 		storage: storage,

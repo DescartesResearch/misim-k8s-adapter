@@ -1,3 +1,4 @@
+// Package misim contains type definitions used for the communication with the simulation.
 package misim
 
 import (
@@ -7,19 +8,25 @@ import (
 	cluster "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-// Information about a successfully binded pod
+// BindingInformation represents the information about a successfully bound pod.
 type BindingInformation struct {
-	Pod  string
+	// The name of the pod that was bound.
+	Pod string
+	// The name of the node the pod was bound to.
 	Node string
 }
 
-// Information about a failed binding for a pod
+// BindingFailureInformation represents the information about a pod that could
+// not be bound to a node.
 type BindingFailureInformation struct {
-	Pod     string
+	// The name of the pod that could not be bound.
+	Pod string
+	// The message specifying the reason why the pod could not be bound.
 	Message string
 }
 
-// Update request from the simulation for nodes
+// NodeUpdateRequest represents a request sent by the simulation when one or more
+// nodes have been updated.
 type NodeUpdateRequest struct {
 	// All nodes the should be scheduled on the machines
 	AllNodes    v1.NodeList
@@ -29,12 +36,69 @@ type NodeUpdateRequest struct {
 	Machines []cluster.Machine
 }
 
-// Response of the adapter to a NodeUpdateRequest from the simulation
-type NodeUpdateResponse struct {
-	NewNodes []v1.Node
+// NodeFailureRequest represents a request sent by the simulation when one or
+// more nodes fail.
+type NodeFailureRequest struct {
+	// FailedPods is the list of pod names that were scheduled on the nodes that failed.
+	FailedPods []string `json:"failedPods"`
 }
 
-// Update request from the simulation for pods
+// NodeFailureResponse represents the response to send to the simulation after
+// processing a node failure. It includes information about when to mark a node
+// as "NotReady" and when to evict pods as a result of the failure.
+type NodeFailureResponse struct {
+	// NodeMonitorGracePeriodSeconds is the duration (in seconds) after which the
+	// failed nodes will be marked as "NotReady".
+	NodeMonitorGracePeriodSeconds int `json:"nodeMonitorGracePeriodSeconds"`
+	// NoExecuteTaintDelaySeconds represents the delay in seconds after which a NoExecute
+	// taint should be added to the node.
+	NoExecuteTaintDelaySeconds int `json:"noExecuteTaintDelaySeconds"`
+	// PodEvictionEvents maps the delay (in seconds) after a node is marked "NotReady"
+	// to the list of pods that should be evicted at that time. Evictions are determined
+	// based on the pods' tolerations. An eviction delay of `-1` indicates to never evict the pod.
+	PodEvictionEvents map[int64][]string `json:"podEvictionEvents"`
+}
+
+// NodeNotReadyRequest represents a request sent by the simulation when one or
+// more nodes have been marked as not ready. Currently, this can only happen when the
+// node(s) previously failed and the `NodeMonitorGracePeriodSeconds` has elapsed.
+type NodeNotReadyRequest struct {
+	// Nodes is the list of node names to mark as "NotReady".
+	Nodes []string `json:"nodes"`
+}
+
+// NodeNotReadyResponse represents the response to send to the simulation after
+// marking nodes as "NotReady". It contains the updated Kubernetes representations
+// of the affected nodes, machines, and machine sets .
+type NodeNotReadyResponse struct {
+	// Nodes is the list of updated Kubernetes node representations.
+	Nodes []v1.Node `json:"nodes"`
+	// Machines is the list of updated Kubernetes machine representations.
+	Machines []cluster.Machine `json:"machines"`
+	// MachineSets is the list of updated Kubernetes node representations.
+	MachineSets []cluster.MachineSet `json:"machineSets"`
+}
+
+// NodeNoExecuteRequest represents a request sent by the simulation when one or
+// more nodes have been marked as not ready and a NoExecute taint should be added.
+// Currently, this can only happen when the node(s) previously failed and the
+// nodes have been marked as `NotReady` after `NodeMonitorGracePeriodSeconds` seconds
+// and the `NodeMonitorPeriodSeconds` delay has elapsed..
+type NodeNoExecuteRequest struct {
+	// Nodes is the list of node names to add the "NoExecute" taint to.
+	Nodes []string `json:"nodes"`
+}
+
+// NodeNoExecuteResponse represent the response to send to the simulation after adding
+// the "NoExecute" taints to the requested nodes have been added. It contains the updated
+// Kubernetes representations of the affected nodes.
+type NodeNoExecuteResponse struct {
+	// Nodes is the list of updated Kubernetes node representations.
+	Nodes []v1.Node `json:"nodes"`
+}
+
+// PodsUpdateRequest represents the request sent by the simulation when one or
+// more pods have been updated.
 type PodsUpdateRequest struct {
 	// All pods in the simulation
 	AllPods v1.PodList
@@ -43,8 +107,9 @@ type PodsUpdateRequest struct {
 	PodsToBePlaced v1.PodList
 }
 
-// Response of the adapter to a PodsUpdateRequest from the simulation
-// with the information about bindings and failures from the kubescheduler
+// PodsUpdateResponse represents the respond to send to the simulation after
+// handling a PodsUpdateRequest. It contains the information about bindings and
+// failures from the kubescheduler.
 type PodsUpdateResponse struct {
 	Failed       []BindingFailureInformation
 	Binded       []BindingInformation
@@ -52,5 +117,6 @@ type PodsUpdateResponse struct {
 	DeletedNodes []v1.Node
 }
 
-// Response of the adapter to a Events request from the simulation
+// EventsResponse represents the response to send to the simulation after
+// an event request
 type EventsResponse struct{ eventsv1.EventList }

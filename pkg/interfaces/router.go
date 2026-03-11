@@ -1,12 +1,13 @@
 package interfaces
 
 import (
+	"io"
+	"net/http"
+
 	"go-kube/internal/infrastructure"
 	"go-kube/pkg/interfaces/kubeapi"
 	"go-kube/pkg/interfaces/simulation"
 	"go-kube/pkg/storage"
-	"io"
-	"net/http"
 
 	"github.com/gorilla/mux"
 	autoscaling "k8s.io/api/autoscaling/v1"
@@ -27,7 +28,7 @@ type AdapterApplication struct {
 }
 
 func NewAdapterApplication(storageContainer *storage.StorageContainer) *AdapterApplication {
-	var router = mux.NewRouter().StrictSlash(true)
+	router := mux.NewRouter().StrictSlash(true)
 	return &AdapterApplication{
 		router: router,
 		kube2:  kubeapi.NewKubeApi(storageContainer),
@@ -37,7 +38,7 @@ func NewAdapterApplication(storageContainer *storage.StorageContainer) *AdapterA
 
 func (app *AdapterApplication) Start() {
 	app.registerRoutes()
-	var port = "8000"
+	port := "8000"
 	klog.V(1).Info("Starting adapter on port ", port)
 	err := http.ListenAndServe(":"+port, app.router)
 	if err != nil {
@@ -48,9 +49,12 @@ func (app *AdapterApplication) Start() {
 
 func (app *AdapterApplication) registerRoutes() {
 	// Simulator API
-	app.router.HandleFunc("/updateNodes", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().Post)).Methods("POST")
+	app.router.HandleFunc("/updateNodes", infrastructure.HandleRequestWithRequestJSONBodyOnly(app.sim2.NodeUpdates().Post)).Methods("POST")
+	app.router.HandleFunc("/failNodes", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().FailNodes)).Methods("POST")
+	app.router.HandleFunc("/markNodesNotReady", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().MarkNodesNotReady)).Methods("POST")
+	app.router.HandleFunc("/addNoExecuteTaint", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().MarkNodesNoExecute)).Methods("POST")
 	app.router.HandleFunc("/updatePods", infrastructure.HandleRequestWithJSONBody(app.sim2.PodUpdates().Post)).Methods("POST")
-	app.router.HandleFunc("/getEventsApiEvents", func(w http.ResponseWriter, r *http.Request) {
+	app.router.HandleFunc("/getEventsApiEvents", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		eventList := app.sim2.Events().GetEventsApiEvents()
 		eventsv1GV := eventsv1.SchemeGroupVersion
@@ -64,7 +68,7 @@ func (app *AdapterApplication) registerRoutes() {
 		w.Write(encodedEventList)
 	}).Methods("GET")
 
-	app.router.HandleFunc("/getCoreApiEvents", func(w http.ResponseWriter, r *http.Request) {
+	app.router.HandleFunc("/getCoreApiEvents", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		eventList := app.sim2.Events().GetCoreApiEvents()
 		corev1GV := v1.SchemeGroupVersion
@@ -178,5 +182,4 @@ func (app *AdapterApplication) registerRoutes() {
 	app.router.HandleFunc("/apis/cluster.x-k8s.io/v1beta1/namespaces/{namespace}/machinesets/{machinesetName}/scale", infrastructure.HandleRequestWithParamsAndJSONBody(func(params map[string]string, body autoscaling.Scale) autoscaling.Scale {
 		return app.kube2.Apis().Cluster().V1Beta1().Namespaces().Namespace(params["namespace"]).MachineSets().MachineSet(params["machinesetName"]).Scale().Put(body)
 	})).Methods("PUT")
-
 }

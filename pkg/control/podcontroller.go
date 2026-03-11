@@ -1,3 +1,4 @@
+// Package control controls resources
 package control
 
 import (
