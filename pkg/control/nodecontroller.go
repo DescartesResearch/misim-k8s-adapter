@@ -387,6 +387,7 @@ func (c *NodeController) HandleMarkNodeNoExecute(nodes []string) misim.NodeNoExe
 					}
 				}
 				node.Spec.Taints = append(node.Spec.Taints, taintToAdd)
+				c.storage.Nodes.PutNode(node.Name, node)
 			}
 		}
 	}
