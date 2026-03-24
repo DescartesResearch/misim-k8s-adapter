@@ -258,7 +258,7 @@ NEXT:
 	for _, name := range failedPods {
 		pod := c.storage.Pods.GetPod(name)
 		for _, toleration := range pod.Spec.Tolerations {
-			if toleration.Effect == v1.TaintEffectNoExecute && toleration.Key == v1.TaintNodeNotReady {
+			if toleration.Effect == v1.TaintEffectNoExecute && toleration.Key == v1.TaintNodeUnreachable {
 				tolerationSeconds := toleration.TolerationSeconds
 				switch {
 				case tolerationSeconds == nil:
