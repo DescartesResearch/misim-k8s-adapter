@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 
+	"go-kube/pkg/config"
+	"go-kube/pkg/control"
 	"go-kube/pkg/interfaces"
 	"go-kube/pkg/storage"
 	"go-kube/pkg/storage/inmemorystorage"
@@ -41,7 +43,9 @@ func initStorages() storage.StorageContainer {
 func main() {
 	klog.InitFlags(nil) // initializing the flags
 	defer klog.Flush()  // flushes all pending log I/O
-	flag.Parse()        // parses the command-line flags
+	config.InitConfigFlags()
+	flag.Parse() // parses the command-line flags
+	control.Init(config.Seed)
 	storages := initStorages()
 	app := interfaces.NewAdapterApplication(&storages)
 	app.Start()

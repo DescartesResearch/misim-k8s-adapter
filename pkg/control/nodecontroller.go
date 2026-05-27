@@ -3,6 +3,7 @@ package control
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -52,6 +53,13 @@ var (
 		Effect: v1.TaintEffectNoExecute,
 	}
 )
+
+var rng *rand.Rand
+
+// Init initializes the RNG with the given seed.
+func Init(seed int64) {
+	rng = rand.New(rand.NewSource(seed))
+}
 
 // NodeController handles all node-related requests sent by the simulation.
 type NodeController struct {
@@ -279,8 +287,12 @@ NEXT:
 		evictionEvents[DefaultNotReadyTolerationSeconds] = append(evictionEvents[DefaultNotReadyTolerationSeconds], name)
 	}
 
+	maxDelay := NodeMonitorGracePeriodSeconds + NodeMonitorPeriodSeconds
+	minDelay := NodeMonitorGracePeriodSeconds - NodeMonitorPeriodSeconds
+	gracePeriod := rng.Intn(maxDelay-minDelay+1) + minDelay
+
 	return misim.NodeFailureResponse{
-		NodeMonitorGracePeriodSeconds: NodeMonitorGracePeriodSeconds,
+		NodeMonitorGracePeriodSeconds: gracePeriod,
 		NoExecuteTaintDelaySeconds:    NodeMonitorPeriodSeconds,
 		PodEvictionEvents:             evictionEvents,
 	}
