@@ -20,6 +20,7 @@ type PodController struct {
 	mu          sync.Mutex
 }
 
+// UpdatePods updates the given pods
 func (c *PodController) UpdatePods(ur v1.PodList, events []metav1.WatchEvent, podsToBePlaced v1.PodList, deleteEvents bool) misim.PodsUpdateResponse {
 	if !deleteEvents {
 		klog.V(3).Info("Pod-Update: ", len(ur.Items), " pods, ", len(podsToBePlaced.Items), " to be placed")
@@ -55,6 +56,10 @@ func (c *PodController) UpdatePods(ur v1.PodList, events []metav1.WatchEvent, po
 		c.storage.Pods.DeletePods(events)
 	}
 	return c.createDefaultResponse()
+}
+
+func (c *PodController) failPod(podName string) {
+	c.storage.Pods.DeletePod(podName)
 }
 
 // Generates an update about all the pods that should be placed

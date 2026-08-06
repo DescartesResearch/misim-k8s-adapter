@@ -7,19 +7,26 @@ import (
 
 type PodUpdatesResource interface {
 	Post(misim.PodsUpdateRequest) misim.PodsUpdateResponse
+	FailPod(misim.PodFailureRequest)
 }
 
 type PodUpdatesResourceImpl struct {
-	storage *storage.StorageContainer
+	controller *PodController
+	storage    *storage.StorageContainer
 }
 
 func (impl PodUpdatesResourceImpl) Post(u misim.PodsUpdateRequest) misim.PodsUpdateResponse {
-	controller := NewPodController(impl.storage)
-	return controller.UpdatePods(u.AllPods, u.Events, u.PodsToBePlaced, false)
+	return impl.controller.UpdatePods(u.AllPods, u.Events, u.PodsToBePlaced, false)
+}
+
+func (impl PodUpdatesResourceImpl) FailPod(u misim.PodFailureRequest) {
+	impl.controller.failPod(u.FailedPod)
 }
 
 func NewPodUpdateResource(storage *storage.StorageContainer) PodUpdatesResourceImpl {
+	controller := NewPodController(storage)
 	return PodUpdatesResourceImpl{
-		storage: storage,
+		storage:    storage,
+		controller: &controller,
 	}
 }

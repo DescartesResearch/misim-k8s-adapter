@@ -2,14 +2,16 @@ package inmemorystorage
 
 import (
 	"context"
+	"sync"
+
 	"go-kube/internal/broadcast"
 	"go-kube/pkg/misim"
 	storage2 "go-kube/pkg/storage"
+
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
-	"sync"
 )
 
 type PodInMemoryStorage struct {
@@ -40,8 +42,19 @@ func (s *PodInMemoryStorage) GetPods() (core.PodList, *broadcast.BroadcastServer
 
 func (s *PodInMemoryStorage) StorePods(pods core.PodList, events []metav1.WatchEvent) {
 	s.pods = pods
+
+	// First only modified/deleted events
 	for _, e := range events {
-		s.podEventChan <- e
+		klog.V(3).Infof("EVENT TYPE: %s", e.Type)
+		if e.Type == "MODIFIED" || e.Type == "DELETED" {
+			s.podEventChan <- e
+		}
+	}
+	// Second only added events
+	for _, e := range events {
+		if e.Type == "ADDED" {
+			s.podEventChan <- e
+		}
 	}
 }
 
@@ -64,12 +77,31 @@ func (s *PodInMemoryStorage) GetPod(podName string) core.Pod {
 	return u
 }
 
+func (s *PodInMemoryStorage) DeletePod(podName string) core.Pod {
+	var index int
+	var deletedPod core.Pod
+	for i, pod := range s.pods.Items {
+		if pod.Name == podName {
+			index = i
+			deletedPod = pod
+			break
+		}
+	}
+
+	s.pods.Items[index] = s.pods.Items[len(s.pods.Items)-1]
+	s.pods.Items = s.pods.Items[:len(s.pods.Items)-1]
+
+	podDeleteEvent := metav1.WatchEvent{Type: "DELETED", Object: runtime.RawExtension{Object: &deletedPod}}
+	s.podEventChan <- podDeleteEvent
+	return deletedPod
+}
+
 func (s *PodInMemoryStorage) UpdatePod(podName string, newValues core.Pod) {
 	// Find index, and replace
 	var index int = -1
 	for i, element := range s.pods.Items {
 		if element.Name == podName {
-			klog.V(8).Info("Found pod %s\n", podName)
+			klog.V(8).Info("Found pod %s", podName)
 			index = i
 			break
 		}

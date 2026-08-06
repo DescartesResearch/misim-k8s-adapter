@@ -54,6 +54,7 @@ func (app *AdapterApplication) registerRoutes() {
 	app.router.HandleFunc("/markNodesNotReady", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().MarkNodesNotReady)).Methods("POST")
 	app.router.HandleFunc("/addNoExecuteTaint", infrastructure.HandleRequestWithJSONBody(app.sim2.NodeUpdates().MarkNodesNoExecute)).Methods("POST")
 	app.router.HandleFunc("/updatePods", infrastructure.HandleRequestWithJSONBody(app.sim2.PodUpdates().Post)).Methods("POST")
+	app.router.HandleFunc("/failPod", infrastructure.HandleRequestWithRequestJSONBodyOnly(app.sim2.PodUpdates().FailPod)).Methods("POST")
 	app.router.HandleFunc("/getEventsApiEvents", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		eventList := app.sim2.Events().GetEventsApiEvents()
@@ -135,7 +136,8 @@ func (app *AdapterApplication) registerRoutes() {
 	app.router.HandleFunc("/api/v1/namespaces/{namespace}/events", infrastructure.HandleRequestWithParamsAndJSONBody(
 		func(params map[string]string, body v1.Event) v1.Event {
 			return app.kube2.Api().V1().Namespaces().Namespace(params["namespace"]).Events().Post(body)
-		})).Methods("POST")
+		},
+	)).Methods("POST")
 
 	app.router.HandleFunc("/apis/events.k8s.io/v1", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/events.k8s.io/v1/namespaces/{namespace}/events", infrastructure.UnsupportedResource()).Methods("GET")
@@ -162,6 +164,7 @@ func (app *AdapterApplication) registerRoutes() {
 	app.router.HandleFunc("/apis/storage.k8s.io/v1/csidrivers", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/storage.k8s.io/v1/csinodes", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/storage.k8s.io/v1/csistoragecapacities", infrastructure.UnsupportedResource()).Methods("GET")
+	app.router.HandleFunc("/apis/storage.k8s.io/v1/volumeattachments", infrastructure.UnsupportedResource()).Methods("GET")
 	app.router.HandleFunc("/apis/storage.k8s.io/v1beta1/csistoragecapacities", infrastructure.UnsupportedResource()).Methods("GET")
 	// Clusterx API
 	app.router.HandleFunc("/apis/cluster.x-k8s.io/v1beta1", infrastructure.HandleJSONRequest(app.kube2.Apis().Cluster().V1Beta1().Get)).Methods("GET")

@@ -36,6 +36,12 @@ type NodeUpdateRequest struct {
 	Machines []cluster.Machine
 }
 
+// PodFailureRequest represents a request sent by the simulation when a pod failed.
+type PodFailureRequest struct {
+	// The name of the failed pod
+	FailedPod string `json:"failedPod"`
+}
+
 // NodeFailureRequest represents a request sent by the simulation when one or
 // more nodes fail.
 type NodeFailureRequest struct {

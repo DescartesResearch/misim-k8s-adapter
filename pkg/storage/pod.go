@@ -3,6 +3,7 @@ package storage
 import (
 	"go-kube/internal/broadcast"
 	"go-kube/pkg/misim"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -16,6 +17,8 @@ type PodStorage interface {
 	GetPods() (v1.PodList, *broadcast.BroadcastServer[metav1.WatchEvent])
 	// UpdatePodStatus(pod v1.Pod)
 	DeletePods(events []metav1.WatchEvent)
+
+	DeletePod(podName string) v1.Pod
 	// Get Pod by name
 	GetPod(podName string) v1.Pod
 	// Updates the pod with the passed name
